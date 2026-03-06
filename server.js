@@ -5,31 +5,36 @@ require('dotenv').config();
 
 const app = express();
 
-// Middleware
-app.use(cors()); // Allows Netlify to access this API
-app.use(express.json()); // Parses incoming JSON data
+// --- FIXED CORS CONFIGURATION ---
+const corsOptions = {
+  origin: 'https://hamza-ethio-market.netlify.app', // Your specific frontend
+  optionsSuccessStatus: 200,
+  credentials: true // Required if you decide to use cookies/sessions later
+};
 
-// 1. Connect to MongoDB Atlas
+app.use(cors(corsOptions));
+// --------------------------------
+
+app.use(express.json());
+
+// MongoDB Connection
 mongoose.connect(process.env.MONGODB_URI)
   .then(() => console.log("✅ Connected to MongoDB Atlas"))
   .catch(err => console.error("❌ MongoDB Connection Error:", err));
 
-// 2. Define the Product Schema directly in server.js for simplicity
+// Product Schema (as defined before)
 const productSchema = new mongoose.Schema({
   title: { type: String, required: true },
   price: { type: Number, required: true },
   description: String,
   imageUrl: String,
-  sellerId: String,
-  category: String,
   isBoosted: { type: Boolean, default: false },
   createdAt: { type: Date, default: Date.now }
 });
 
 const Product = mongoose.model('Product', productSchema);
 
-// 3. API Routes
-// GET: Fetch all products for the Home page
+// API Routes
 app.get('/api/products', async (req, res) => {
   try {
     const products = await Product.find().sort({ isBoosted: -1, createdAt: -1 });
@@ -39,19 +44,7 @@ app.get('/api/products', async (req, res) => {
   }
 });
 
-// POST: Add a new product (Seller Dashboard)
-app.post('/api/products/add', async (req, res) => {
-  const product = new Product(req.body);
-  try {
-    const newProduct = await product.save();
-    res.status(201).json(newProduct);
-  } catch (err) {
-    res.status(400).json({ message: err.message });
-  }
-});
-
-// Health Check for Render
-app.get('/api/health', (req, res) => res.send("Server is running!"));
+app.get('/api/health', (req, res) => res.send("Backend is Healthy and Whitelisted!"));
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
