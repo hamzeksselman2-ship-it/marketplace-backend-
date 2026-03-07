@@ -9,7 +9,7 @@ const app = express();
 // Middleware
 app.use(express.json());
 
-// CORS ማስተካከያ - አዲሱን የ Vercel ሊንክ እዚህ አካተናል
+// CORS ማስተካከያ - ለሁለቱም ሊንኮች ፈቃድ ሰጥተናል
 app.use(cors({
   origin: [
     'https://hamza-ethio-market.netlify.app', 
@@ -18,19 +18,19 @@ app.use(cors({
   credentials: true
 }));
 
-// የዳታቤዝ ግንኙነት
+// የዳታቤዝ ግንኙነት (MONGO_URI በ Render Environment ውስጥ መኖሩን አረጋግጪ)
 mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log('በተሳካ ሁኔታ ከ MongoDB Atlas ጋር ተገናኝተናል!'))
   .catch(err => console.error('የዳታቤዝ ግንኙነት ስህተት:', err));
 
-// --- 1. የተጠቃሚዎች ሞዴል (User Model) ---
+// --- 1. የተጠቃሚዎች ሞዴል ---
 const UserSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true }
 });
 const User = mongoose.model('User', UserSchema);
 
-// --- 2. የምርቶች ሞዴል (Product Model) ---
+// --- 2. የምርቶች ሞዴል ---
 const ProductSchema = new mongoose.Schema({
   title: String,
   price: Number,
@@ -90,6 +90,20 @@ app.post('/api/products', async (req, res) => {
     res.status(201).json(newProduct);
   } catch (err) {
     res.status(400).json({ message: "ምርቱን መመዝገብ አልተቻለም" });
+  }
+});
+
+// አዲስ የመጣው - ምርትን የማጥፊያ መንገድ (Delete Product)
+app.delete('/api/products/:id', async (req, res) => {
+  try {
+    const deletedProduct = await Product.findByIdAndDelete(req.params.id);
+    if (deletedProduct) {
+      res.json({ message: "ምርቱ በተሳካ ሁኔታ ተሰርዟል!" });
+    } else {
+      res.status(404).json({ message: "ምርቱ አልተገኘም" });
+    }
+  } catch (err) {
+    res.status(500).json({ message: "ምርቱን ማጥፋት አልተቻለም" });
   }
 });
 
