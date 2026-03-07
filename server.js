@@ -1,82 +1,97 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
-require('dotenv').config();
+const dotenv = require('dotenv');
 
+dotenv.config();
 const app = express();
 
-const corsOptions = {
-  origin: 'https://hamza-ethio-market.netlify.app', 
-  optionsSuccessStatus: 200,
-  credentials: true 
-};
-
-app.use(cors(corsOptions));
+// Middleware
 app.use(express.json());
 
-// MongoDB Connection
-mongoose.connect(process.env.MONGODB_URI)
-  .then(() => console.log("✅ Connected to MongoDB Atlas"))
-  .catch(err => console.error("❌ MongoDB Connection Error:", err));
+// CORS ማስተካከያ - አዲሱን የ Vercel ሊንክ እዚህ አካተናል
+app.use(cors({
+  origin: [
+    'https://hamza-ethio-market.netlify.app', 
+    'https://marketplace-frontend-final.vercel.app'
+  ],
+  credentials: true
+}));
 
-// User Schema (አዲስ የተጨመረ - ለተጠቃሚዎች)
-const userSchema = new mongoose.Schema({
+// የዳታቤዝ ግንኙነት
+mongoose.connect(process.env.MONGO_URI)
+  .then(() => console.log('በተሳካ ሁኔታ ከ MongoDB Atlas ጋር ተገናኝተናል!'))
+  .catch(err => console.error('የዳታቤዝ ግንኙነት ስህተት:', err));
+
+// --- 1. የተጠቃሚዎች ሞዴል (User Model) ---
+const UserSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true }
 });
-const User = mongoose.model('User', userSchema);
+const User = mongoose.model('User', UserSchema);
 
-// Product Schema
-const productSchema = new mongoose.Schema({
-  title: { type: String, required: true },
-  price: { type: Number, required: true },
+// --- 2. የምርቶች ሞዴል (Product Model) ---
+const ProductSchema = new mongoose.Schema({
+  title: String,
+  price: Number,
   description: String,
   imageUrl: String,
-  isBoosted: { type: Boolean, default: false },
-  createdAt: { type: Date, default: Date.now }
+  seller: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
 });
-const Product = mongoose.model('Product', productSchema);
+const Product = mongoose.model('Product', ProductSchema);
 
-// --- API ROUTES ---
+// --- 3. መንገዶች (Routes) ---
 
-// 1. ምርቶችን ለማምጣት
-app.get('/api/products', async (req, res) => {
-  try {
-    const products = await Product.find().sort({ isBoosted: -1, createdAt: -1 });
-    res.json(products);
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-});
+// መፈተሻ (Health Check)
+app.get('/', (req, res) => res.send('Ethio-Market API እየሰራ ነው!'));
 
-// 2. አዲስ ተጠቃሚ ለመመዝገብ (Signup)
+// የምዝገባ መንገድ (Signup)
 app.post('/api/signup', async (req, res) => {
   try {
     const { email, password } = req.body;
     const newUser = new User({ email, password });
     await newUser.save();
-    res.status(201).json({ message: "ተጠቃሚ በስኬት ተመዝግቧል!" });
+    res.status(201).json({ message: "ተጠቃሚው በተሳካ ሁኔታ ተመዝግቧል!" });
   } catch (err) {
     res.status(400).json({ message: "ምዝገባው አልተሳካም: " + err.message });
   }
 });
 
-// 3. ለመግባት (Login)
+// የሎጊን መንገድ (Login)
 app.post('/api/login', async (req, res) => {
   try {
     const { email, password } = req.body;
     const user = await User.findOne({ email, password });
     if (user) {
-      res.json({ message: "እንኳን ደህና መጡ!", user });
+      res.json({ message: "እንኳን ደህና መጡ!", user: { id: user._id, email: user.email } });
     } else {
-      res.status(401).json({ message: "ኢሜል ወይም ፓስወርድ ተሳስቷል" });
+      res.status(401).json({ message: "የገቡት መረጃ ትክክል አይደለም።" });
     }
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(500).json({ message: "የሰርቨር ስህተት አጋጥሟል" });
   }
 });
 
-app.get('/api/health', (req, res) => res.send("Backend is Healthy!"));
+// ምርቶችን የማምጣት መንገድ (Get Products)
+app.get('/api/products', async (req, res) => {
+  try {
+    const products = await Product.find();
+    res.json(products);
+  } catch (err) {
+    res.status(500).json({ message: "ምርቶችን ማግኘት አልተቻለም" });
+  }
+});
+
+// ምርት የመመዝገቢያ መንገድ (Add Product)
+app.post('/api/products', async (req, res) => {
+  try {
+    const newProduct = new Product(req.body);
+    await newProduct.save();
+    res.status(201).json(newProduct);
+  } catch (err) {
+    res.status(400).json({ message: "ምርቱን መመዝገብ አልተቻለም" });
+  }
+});
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+app.listen(PORT, () => console.log(`ሰርቨሩ በፖርት ${PORT} ላይ ስራ ጀምሯል`));
